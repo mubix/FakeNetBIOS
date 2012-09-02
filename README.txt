@@ -1,4 +1,8 @@
 
+Note to author: if you would like this pulled from Github, I understand and 
+will do so without question. Since you have provided source I (@mubix) 
+figured it would be a good way to get improvments into the package
+
    -------------------------------------------------------------------------
   |                                                                         |
   |                           FakeNetBIOS Tools                             |
@@ -8,7 +12,7 @@
    -------------------------------------------------------------------------
 
 
-Copyright © Patrick Chambet 2004-2005
+Copyright ï¿½ Patrick Chambet 2004-2005
 
 
 
