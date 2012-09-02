@@ -1,0 +1,2 @@
+2005-05-01  Patrick Chambet  <patrick@chambet.com> 0.91
+	* Initial public release

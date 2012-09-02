@@ -1,0 +1,7 @@
+Patrick Chambet <patrick@chambet.com>
+
+Greetings to:
+- Barzoc <barzoc@rstack.org>
+- Francis Hauguet <francis.hauguet@eads.com>
+- The French Honeynet Project (FHP) <http://www.frenchhoneynet.org>
+- Rstack team <http://www.rstack.org>
