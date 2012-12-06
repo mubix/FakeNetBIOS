@@ -798,7 +798,7 @@ void usage(char *name)
 
 	printf("NetBIOS options:\n");
         printf("  -a                      Spoof all host queries (incompatible with -D, -N)\n");
-	printf("  -S [spoofed IP]         Spoof host query replies with this IP.\n");
+	printf("  -S [spoofed IP]         Spoof host query replies with this IP (i.e.: this is\n                           where clients on the network will end up connecting)\n");
 	printf("  -D [Domain/Workgroup]   Target Domain/Workgroup (default: WORKGROUP)\n");
 	printf("  -N [names prefix]       Host names prefix (default: HOST)\n");
 	printf("  -f [file path]          Use a configuration file (default: none)\n");
@@ -812,7 +812,7 @@ void usage(char *name)
 	printf("\n");
 
 	printf("Example:\n");
-	printf("%s -a -S 192.168.10.10\n", name);
+	printf("%s -a -s 192.168.10.9 -S 192.168.10.10\n", name);
 	printf("%s -s 192.168.0.1 -d 192.168.0.255 -D NTDOM -N ALLYOURBASE -v\n", name);
 	printf ("\n");
 
