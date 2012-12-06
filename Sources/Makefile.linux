@@ -1,0 +1,12 @@
+all:	FakeNetbiosNS FakeNetbiosDGM
+
+FakeNetbiosNS:
+	gcc -o FakeNetbiosNS FakeNetbiosNS.c
+	strip FakeNetbiosNS
+
+FakeNetbiosDGM:
+	gcc -o FakeNetbiosDGM FakeNetbiosDGM.c
+	strip FakeNetbiosDGM
+
+clean:
+	rm -f FakeNetbiosDGM FakeNetbiosNS *.o

@@ -733,7 +733,7 @@ int send_udp(unsigned long sourceIP, unsigned short sourceport, unsigned long de
 
     bf = 1;
 #ifdef WIN32
-    ioctlsocket(s, FIONBIO, &bf);
+    ioctlsocket(s, FIONBIO, (u_long *)&bf);
 #endif
 
     tv.tv_sec = 10;
@@ -772,7 +772,7 @@ int send_udp(unsigned long sourceIP, unsigned short sourceport, unsigned long de
 		return -5;
     }
 #ifdef WIN32
-    ioctlsocket(s, FIONBIO, &bf);
+    ioctlsocket(s, FIONBIO, (u_long *)&bf);
 #endif
 
 	/* Send data */
