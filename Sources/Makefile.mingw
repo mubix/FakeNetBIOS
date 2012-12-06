@@ -1,0 +1,12 @@
+all:	FakeNetbiosNS FakeNetbiosDGM
+
+FakeNetbiosNS:
+	gcc -o FakeNetbiosNS.exe FakeNetbiosNS.c -lws2_32
+	strip FakeNetbiosNS.exe
+
+FakeNetbiosDGM:
+	gcc -o FakeNetbiosDGM.exe FakeNetbiosDGM.c -lws2_32
+	strip FakeNetbiosDGM.exe
+
+clean:
+	rm -f *.exe *.o
